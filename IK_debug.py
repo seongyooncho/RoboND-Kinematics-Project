@@ -63,6 +63,97 @@ def test_code(test_case):
     ## 
 
     ## Insert IK code here!
+
+    # Define DH param symbols
+    d1, d2, d3, d4, d5, d6, d7 = symbols('d1:8')
+    a0, a1, a2, a3, a4, a5, a6 = symbols('a0:7')
+    alpha0, alpha1, alpha2, alpha3, alpha4, alpha5, alpha6 = symbols('alpha0:7')
+
+    # Joint angle symbols
+    q1, q2, q3, q4, q5, q6, q7 = symbols('q1:8')
+
+    # Modified DH params
+    DH_Table = {alpha0:      0, a0:      0, d1:  0.75, q1:       q1,
+                alpha1: -pi/2., a1:   0.35, d2:     0, q2: q2-pi/2.,
+                alpha2:      0, a2:   1.25, d3:     0, q3:       q3,
+                alpha3: -pi/2., a3: -0.054, d4:  1.50, q4:       q4,
+                alpha4:  pi/2., a4:      0, d5:     0, q5:       q5,
+                alpha5: -pi/2., a5:      0, d6:     0, q6:       q6,
+                alpha6:      0, a6:      0, d7: 0.303, q7:        0}
+
+    # Define Modified DH Transformation matrix
+    def TF_Matrix(alpha, a, d, q):
+        TF = Matrix([[             cos(q),           -sin(q),           0,             a],
+                     [ sin(q1)*cos(alpha), cos(q)*cos(alpha), -sin(alpha), -sin(alpha)*d],
+                     [ sin(q1)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),  cos(alpha)*d],
+                     [                  0,                 0,           0,             1]])
+        return TF
+
+    # Create individual transformation matrices
+    T0_1 = TF_Matrix(alpha0, a0, d1, q1).subs(DH_Table)
+    T1_2 = TF_Matrix(alpha1, a1, d2, q2).subs(DH_Table)
+    T2_3 = TF_Matrix(alpha2, a2, d3, q3).subs(DH_Table)
+    T3_4 = TF_Matrix(alpha3, a3, d4, q4).subs(DH_Table)
+    T4_5 = TF_Matrix(alpha4, a4, d5, q5).subs(DH_Table)
+    T5_6 = TF_Matrix(alpha5, a5, d6, q6).subs(DH_Table)
+    T6_EE = TF_Matrix(alpha6, a6, d7, q7).subs(DH_Table)
+    
+    T0_EE = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_EE
+
+    # Extract end-effector position and orientation from request
+    # px, py, pz = end-effector position
+    # roll, pitch, yaw = end-effector orientation
+    px = req.poses[x].position.x
+    py = req.poses[x].position.y
+    pz = req.poses[x].position.z
+
+    (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+        [req.poses[x].orientation.x,
+         req.poses[x].orientation.y,
+         req.poses[x].orientation.z,
+         req.poses[x].orientation.w])
+
+    # Find EE rotation matrix
+    # Define RPY rotation matrices
+    # http://planning.cs.uiuc.edu/node102.html
+
+    r, p, y = symbols('r p y')
+
+    ROT_x = Matrix([[       1,       0,       0],
+                    [       0,  cos(r), -sin(r)],
+                    [       0,  sin(r),  cos(r)]])
+    
+    ROT_y = Matrix([[  cos(p),       0,  sin(p)],
+                    [       0,       1,       0],
+                    [ -sin(p),       0,  cos(p)]])
+    
+    ROT_z = Matrix([[  cos(y), -sin(y),       0],
+                    [  sin(y),  cos(y),       0],
+                    [       0,       0,       1]])
+
+    ROT_EE = ROT_z * ROT_y * ROT_x
+
+    # More information can be found in KR210 Forward Kinematics section
+    ROT_Error = ROT_z.subs(y, pi) * ROT_y.subs(p, -pi/2.)
+    ROT_EE = ROT_EE * ROT_Error
+    ROT_EE = ROT_EE.subs({'r': roll, 'p': pitch, 'y': yaw})
+
+    EE = Matrix([[px],
+                 [py],
+                 [pz]])
+    
+    WC = EE - (0.303) * ROT_EE[:,2]
+
+    # Calculate joint angles using Geometric IK method
+    # More information can be found in the Inverse Kinematics with Kuka KR210
+    theta1 = atan2(WC[1], WC[0])
+
+    # SSS triangle for theta2 and theta3
+    side_a = 1.501
+    side_b = sqrt(pow((sqrt(WC[0] * WC[0] + WC[1] * WC[1]) - 0.35), 2) + pow((WC[2] - 0.75), 2))
+    side_c = 1.25
+
+    angle_a = acos(
     
     theta1 = 0
     theta2 = 0
@@ -80,12 +171,33 @@ def test_code(test_case):
 
     ## (OPTIONAL) YOUR CODE HERE!
 
+    # Correction Needed to Account of Orientation Difference Between Definition of
+      # Gripper Link in URDF versus DH Convention
+    R_z = Matrix([[     cos(pi), -sin(pi),          0, 0],
+                  [     sin(pi),  cos(pi),          0, 0],
+                  [           0,        0,          1, 0],
+                  [           0,        0,          0, 1]])
+
+    R_y = Matrix([[  cos(-pi/2),        0, sin(-pi/2), 0],
+                  [           0,        1,          0, 0],
+                  [ -sin(-pi/2),        0, cos(-pi/2), 0],
+                  [           0,        0,          0, 1]])
+
+    R_corr = simplify(R_z * R_y)
+
+    your_ee = T0_G.evalf(subs={q1: test_case[2][0],
+                               q2: test_case[2][1],
+                               q3: test_case[2][2],
+                               q4: test_case[2][3],
+                               q5: test_case[2][4],
+                               q6: test_case[2][5]}) * R_corr
+
     ## End your code input for forward kinematics here!
     ########################################################################################
 
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
     your_wc = [1,1,1] # <--- Load your calculated WC values in this array
-    your_ee = [1,1,1] # <--- Load your calculated end effector value from your forward kinematics
+    #your_ee = [1,1,1] # <--- Load your calculated end effector value from your forward kinematics
     ########################################################################################
 
     ## Error analysis
