@@ -163,7 +163,8 @@ def test_code(test_case):
     R0_3 = T0_1[0:3, 0:3] * T1_2[0:3, 0:3] * T2_3[0:3, 0:3]
     R0_3 = R0_3.evalf(subs={q1: theta1, q2: theta2, q3: theta3})
 
-    R3_6 = R0_3.inv("LU") * ROT_EE
+    #R3_6 = R0_3.inv("LU") * ROT_EE
+    R3_6 = Transpose(R0_3) * ROT_EE
 
     # Euler angles from rotation matrix
     # More information can be found in the Euler Angles from a Rotation Matrix section
