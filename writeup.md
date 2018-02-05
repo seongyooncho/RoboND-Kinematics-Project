@@ -24,6 +24,7 @@
 [image4]: ./misc_images/image-4.png
 [image5]: ./misc_images/l21-l-inverse-kinematics-new-design-fixed.png
 [image6]: ./misc_images/image-5.png
+[image7]: ./misc_images/img3.png
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -42,7 +43,7 @@ Here is a diagram of Kuka KR210 robot link assignment.
 
 ![alt text][dhimage]
 
-Here is a DH parameter table derived from `kr210.urdf.xacro` file.
+Here is a DH parameter table.
 
 Links | alpha(i-1) | a(i-1) | d(i-1) | theta(i)
 --- | --- | --- | --- | ---
@@ -53,6 +54,15 @@ Links | alpha(i-1) | a(i-1) | d(i-1) | theta(i)
 4->5 | pi/2 | 0 | 0 | q5
 5->6 | -pi/2 | 0 | 0 | q6
 6->EE | 0 | 0 | 0.303 | 0
+
+- Parameters are derived from `kr210.urdf.xacro` file.
+  - All links are described in `<link>` tags.
+  - Origins are described in `<visual> -> <origin>` tags.
+- It has six **revolute** joints.
+- **alpha** is twist angle.
+- **a** is link length
+- **d** is link offset
+- **theta** is joint angle
 
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
@@ -78,9 +88,49 @@ T5_6  = TF_Matrix(alpha5, a5, d6, q6).subs(DH_Table)
 T6_EE = TF_Matrix(alpha6, a6, d7, q7).subs(DH_Table)
 ```
 
+The resultant matrices are like this.
+```
+T0_1 = Matrix([[cos(q1), -sin(q1), 0, 0],
+               [sin(q1), cos(q1), 0, 0],
+               [0, 0, 1, 0.75],
+               [0, 0, 0, 1]])
+T1_2 = Matrix([[cos(q2 - 0.5*pi), -sin(q2 - 0.5*pi), 0, 0.35],
+               [0, 0, 1, 0],
+               [-sin(q2 - 0.5*pi), -cos(q2 - 0.5*pi), 0, 0],
+               [0, 0, 0, 1]])
+T2_3 = Matrix([[cos(q3), -sin(q3), 0, 1.25],
+               [sin(q3), cos(q3), 0, 0],
+               [0, 0, 1, 0],
+               [0, 0, 0, 1]])
+T3_4 = Matrix([[cos(q4), -sin(q4), 0, -0.054],
+               [0, 0, 1, 1.5],
+               [-sin(q4), -cos(q4), 0, 0],
+               [0, 0, 0, 1]])
+T4_5 = Matrix([[cos(q5), -sin(q5), 0, 0],
+               [0, 0, -1, 0],
+               [sin(q5), cos(q5), 0, 0],
+               [0, 0, 0, 1]])
+T5_6 = Matrix([[cos(q6), -sin(q6), 0, 0],
+               [0, 0, 1, 0],
+               [-sin(q6), -cos(q6), 0, 0],
+               [0, 0, 0, 1]])
+T6_EE = Matrix([[1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0.303],
+                [0, 0, 0, 1]])
+```
+
 Final homogeneous transform can be generated like this.
 ```python
 T0_EE = T0_1 * T1_2 * T2_3 * T3_4 * T4_5 * T5_6 * T6_EE
+```
+If we simplify this with q1, q2, ... q6 = 0
+```python
+simplify(T0_EE.evalf(subs={q1:0, q2:0, q3:0, q4:0, q5:0, q6:0})) =
+    Matrix([[        0,    0,     1.0, 2.153],
+            [        0, -1.0,       0,     0],
+            [      1.0,    0,       0, 1.946],
+            [        0,    0,       0,   1.0]])
 ```
 
 
@@ -118,10 +168,16 @@ WC = EE - (0.303) * ROT_EE[:,2]
 ```
 
 **Step 2.** Find theta1, theta2, theta3. theta2 and theta3 can be calculated according to this diagram.
-![alt text][image5]
-The implementation is as below.
+
+Calculating **theta1** is as straight forward as this.
 ```python
 theta1 = atan2(WC[1], WC[0])
+```
+
+Calculating **theta2** and **theta3** can be described as below.
+![alt text][image5]
+**2** represents Joint 2, **3** represents Joint 3 and **WC** represents Wrist center. Using trigonometry, we can calculate theta2 and theta3 as below.
+```python
 
 # SSS triangle for theta2 and theta3
 side_a = 1.501
@@ -138,6 +194,8 @@ theta3 = pi / 2 - (angle_b + 0.036)  # 0.036 accounts for sag in link4 of -0.054
 
 **Step 3.** Find R3_6 according to this equation.
 ![alt text][image6]
+Transpose of R0_3 is as below
+![alt text][image7]
 The implementation is as below.
 ```python
 R3_6 = Transpose(R0_3) * ROT_E
