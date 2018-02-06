@@ -25,6 +25,8 @@
 [image5]: ./misc_images/l21-l-inverse-kinematics-new-design-fixed.png
 [image6]: ./misc_images/image-5.png
 [image7]: ./misc_images/img3.png
+[image8]: ./misc_images/img6.jpg
+[image9]: ./misc_images/img7.jpg
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -194,18 +196,41 @@ theta3 = pi / 2 - (angle_b + 0.036)  # 0.036 accounts for sag in link4 of -0.054
 
 **Step 3.** Find R3_6 according to this equation.
 ![alt text][image6]
-Transpose of R0_3 is as below
-![alt text][image7]
+
 The implementation is as below.
 ```python
 R3_6 = Transpose(R0_3) * ROT_E
 ```
 
 **Step 4.** Find theta4, theta5, theta6 with `R3_6`
+
+R3_6 can be represented with Euler rotation of theta4, theta5, theta6. It can be calculated with this sympy code.
 ```python
-theta4 = atan2(R3_6[2, 2], -R3_6[0, 2])
+t4, t5, t6 = symbols('t4 t5 t6')
+ROT_x.subs(r, -pi/2.)*ROT_z.subs(y, t4)*ROT_x.subs(r, pi/2.)*ROT_z.subs(y, t5)*ROT_x.subs(r, -pi/2.)*ROT_z.subs(y, t6)
+```
+And the resulting matrix is as below.
+```
+⎡-sin(t₄)⋅sin(t₆) + cos(t₄)⋅cos(t₅)⋅cos(t₆)  -sin(t₄)⋅cos(t₆) - sin(t₆)⋅cos(t₄)⋅cos(t₅)  -sin(t₅)⋅cos(t₄)⎤
+⎢                                                                                                        ⎥
+⎢             sin(t₅)⋅cos(t₆)                             -sin(t₅)⋅sin(t₆)                   cos(t₅)     ⎥
+⎢                                                                                                        ⎥
+⎣-sin(t₄)⋅cos(t₅)⋅cos(t₆) - sin(t₆)⋅cos(t₄)  sin(t₄)⋅sin(t₆)⋅cos(t₅) - cos(t₄)⋅cos(t₆)   sin(t₄)⋅sin(t₅) ⎦
+```
+With this matrix, we can calculate theta4, theta5, theta6 as below.
+
+![alt text][image8]
+![alt text][image9]
+
+The final implementation is like this.
+```python
 theta5 = atan2(sqrt(R3_6[0, 2] * R3_6[0, 2] + R3_6[2, 2] * R3_6[2, 2]), R3_6[1, 2])
-theta6 = atan2(-R3_6[1, 1], R3_6[1, 0])
+if sin(theta5) < 0:
+    theta4 = atan2(-R3_6[2, 2],  R3_6[0, 2])
+    theta6 = atan2( R3_6[1, 1], -R3_6[1, 0])
+else:
+    theta4 = atan2( R3_6[2, 2], -R3_6[0, 2])
+    theta6 = atan2(-R3_6[1, 1],  R3_6[1, 0])
 ```
 
 

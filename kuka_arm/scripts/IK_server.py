@@ -139,9 +139,13 @@ def handle_calculate_IK(req):
         
             #     Euler angles from rotation matrix
             #     More information can be found in the Euler Angles from a Rotation Matrix section
-            theta4 = atan2(R3_6[2, 2], -R3_6[0, 2])
             theta5 = atan2(sqrt(R3_6[0, 2] * R3_6[0, 2] + R3_6[2, 2] * R3_6[2, 2]), R3_6[1, 2])
-            theta6 = atan2(-R3_6[1, 1], R3_6[1, 0])
+            if sin(theta5) < 0:
+                theta4 = atan2(-R3_6[2, 2],  R3_6[0, 2])
+                theta6 = atan2( R3_6[1, 1], -R3_6[1, 0])
+            else:
+                theta4 = atan2( R3_6[2, 2], -R3_6[0, 2])
+                theta6 = atan2(-R3_6[1, 1],  R3_6[1, 0])
        	    #
             ###
 
