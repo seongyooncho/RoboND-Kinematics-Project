@@ -25,6 +25,8 @@
 [image5]: ./misc_images/l21-l-inverse-kinematics-new-design-fixed.png
 [image6]: ./misc_images/image-5.png
 [image7]: ./misc_images/img3.png
+[image8]: ./misc_images/img4.png
+[image9]: ./misc_images/img5.jpg
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -133,12 +135,7 @@ simplify(T0_EE.evalf(subs={q1:0, q2:0, q3:0, q4:0, q5:0, q6:0})) =
             [        0,    0,       0,   1.0]])
 ```
 
-
-#### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
-
-**Step 1.** Find position of WC relative to the base frame. It can be obtained by this equation.
-![alt text][image4]
-The implementation is as below.
+To adjust the discrepancy between the DH table and the URDF reference frame, we need to calculate correction matrix as below.
 ```python
 # Define RPY rotation matrices
 ROT_x = Matrix([[       1,       0,       0],
@@ -157,6 +154,14 @@ ROT_EE = ROT_z * ROT_y * ROT_x
 
 # More information can be found in KR210 Forward Kinematics section
 ROT_Error = ROT_z.subs(y, pi) * ROT_y.subs(p, -pi/2.)
+```
+
+#### 3. Decouple Inverse Kinematics problem into Inverse Position Kinematics and inverse Orientation Kinematics; doing so derive the equations to calculate all individual joint angles.
+
+**Step 1.** Find position of WC relative to the base frame. It can be obtained by this equation.
+![alt text][image4]
+The implementation is as below.
+```python
 ROT_EE = ROT_EE * ROT_Error
 ROT_EE = ROT_EE.subs({'r': roll, 'p': pitch, 'y': yaw})
 
@@ -175,7 +180,7 @@ theta1 = atan2(WC[1], WC[0])
 ```
 
 Calculating **theta2** and **theta3** can be described as below.
-![alt text][image5]
+![alt text][image9]
 **2** represents Joint 2, **3** represents Joint 3 and **WC** represents Wrist center. Using trigonometry, we can calculate theta2 and theta3 as below.
 ```python
 
@@ -226,6 +231,5 @@ theta6 = atan2(-R3_6[1, 1], R3_6[1, 0])
 
 At first, I have used `.inv('LU')` method to get `R3_6` in line 138. But the result made robot movement too complicated. I have changed it to simply `Transpose()`, which the result is identical in mathematics, then the movement got a lot smoother.
 
-My simulator shows the robot is very accurately following paths. But it fails to grab bottles. And it also happens in demo mode.
-
-Defining symbols and matrices outside of `handle_calculate_IK(req)` could speed up execution time.
+Here's the screenshot of my simulator after running 11 times. I have failed first 2 attempts because I have clicked next button too early before the robot firmly grasp the bottle. Besides that, all the other attempts are successful. Final rate is 9/11. The result seems consistent because it showed 9 consecutive success. It was relatively fast, but sometimes showed unnecessary rotations.
+![alt text][image8]
